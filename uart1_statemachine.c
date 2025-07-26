@@ -1,27 +1,19 @@
-# include "uart1_statemachine.h"
+#include "uart1_statemachine.h"
 
-static state_t* p_request_state;
-static state_t* p_response_state;
-
-state_t* func_request_state(input_st input, unsigned char failure);
-state_t* func_response_state(input_st input, unsigned char failure);
+void send(uint8_t* vektor, uint8_t length);
 
 void UART1_initialise_logic(void)
 {
-    p_request_state = register_state(1, 0, func_request_state, 0);
-    p_response_state = register_state(2, 0, func_response_state, 0);
-    
-    initialize_state_machine(p_request_state);
-
     UART1_RX_EN();
 }
 
-state_t* func_request_state(input_st input, unsigned char failure)
+static uint16_t address = 0;
+
+void* UART1_request_state(void)
 {
     static uint8_t received = 0;
     uint8_t rx_data;
     static uint8_t byte_cntr = 0;
-    static uint16_t address = 0;
     static uint8_t is_good_id = 0;
     static uint8_t is_good_function = 0;
 
@@ -80,15 +72,15 @@ state_t* func_request_state(input_st input, unsigned char failure)
     {
         received = 0;
         byte_cntr = 0;
-        return p_response_state;
+        return UART1_response_state;
     }
     else
     {
-        return p_request_state;
+        return UART1_request_state;
     }
 }
 
-state_t* func_response_state(input_st input, unsigned char failure)
+void* UART1_response_state(void)
 {
     static uint8_t resp003f[] = {0xfe, 0x03, 0x02, 0x00, 0x00, 0xac, 0x50};
     static uint8_t resp0164[] = {0xfe, 0x03, 0x02, 0x00, 0x00, 0xac, 0x50};
@@ -99,31 +91,24 @@ state_t* func_response_state(input_st input, unsigned char failure)
     switch(address)
     {
         case 0x003f:
-        send(resp003f, 8);
+        send(resp003f, sizeof(resp003f));
         break;
         case 0x0164:
-        calc_resp0164();
-        send();
         break;
         case 0x000a:
-        send(resp000a, 8);
+        send(resp000a, sizeof(resp000a));
         break;
         case 0x0061:
-        send(resp0061, 29);
+        send(resp0061, sizeof(resp0061));
         break;
-        case 0077:
-        send(resp0077, 8);
+        case 0x0077:
+        send(resp0077, sizeof(resp0077));
         break;
         default:
         break;
     }
 
-    return p_request_state;
-}
-
-void calc_resp0164()
-{
-
+    return UART1_request_state;
 }
 
 void send(uint8_t* vektor, uint8_t length)
