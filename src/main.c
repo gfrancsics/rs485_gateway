@@ -40,9 +40,8 @@
     OF FEES, IF ANY, THAT YOU HAVE PAID DIRECTLY TO MICROCHIP FOR THIS 
     SOFTWARE.
 */
-#include "mcc_generated_files/mcc.h"
-#include "uart1_statemachine.h"
-#include "uart2_statemachine.h"
+#include "../mcc_generated_files/mcc.h"
+#include "task.h"
 
 #define CONTINUOUS 0
 #define INTERVAL_10MS 10
@@ -56,14 +55,6 @@ void task_10ms(void);
 void task_100ms(void);
 void task_1000ms(void);
 void task_60000ms(void);
-
-//task descriptor
-typedef struct
-{
-    uint16_t interval;
-    uint32_t last_tick;
-    void (*func)(void);
-} task_t;
 
 //task configuration table
 static task_t tasks[] =
@@ -80,46 +71,26 @@ static volatile uint32_t tick = 0;
                          Main application
  */
 void main(void)
-{
-    static task_t* p_task;
-    static uint8_t task_index = 0;
-    const uint8_t number_of_tasks = sizeof(tasks)/sizeof(task_t);
-
-    p_task = tasks;
-    
+{    
     // initialize the device
     SYSTEM_Initialize();
     
     TMR1_SetInterruptHandler(timer1_ISR);
     
-    UART1_initialise_logic();
-    UART2_initialise_logic();
-
     // If using interrupts in PIC18 High/Low Priority Mode you need to enable the Global High and Low Interrupts
     // If using interrupts in PIC Mid-Range Compatibility Mode you need to enable the Global Interrupts
     // Use the following macros to:
-
+    
     // Enable the Global Interrupts
     INTERRUPT_GlobalInterruptEnable();
-
+    
     // Disable the Global Interrupts
     //INTERRUPT_GlobalInterruptDisable();
-
+    
     while (1)
     {
         // Add your application code
-        for(task_index=0; task_index<number_of_tasks; task_index++)
-        {
-            if(p_task[task_index].interval == 0)
-            {
-                (*p_task[task_index].func)();
-            }
-            else if((tick-p_task[task_index].last_tick) >= p_task[task_index].interval)
-            {
-                (*p_task[task_index].func)();
-                p_task[task_index].last_tick = tick;
-            }
-        }
+        run_scheduler(tasks, sizeof(tasks)/sizeof(task_t), tick);
     }
 }
 
@@ -133,7 +104,6 @@ void task_10ms(void)
 
 void task_100ms(void)
 {
-    run_state_machine(0,0);
 }
 
 void task_1000ms(void)

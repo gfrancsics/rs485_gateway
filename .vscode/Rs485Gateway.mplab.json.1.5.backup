@@ -1,6 +1,6 @@
 {
     "importedFrom": "./",
-    "version": "1.6",
+    "version": "1.5",
     "configurations": [
         {
             "name": "default",

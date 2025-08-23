@@ -1,0 +1,14 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Build and Run Unit Tests",
+      "type": "shell",
+      "command": "cmake -S cmake/Rs485Gateway/test -B build/test; cmake --build build/test; ctest --test-dir build/test -C Debug --output-on-failure",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    }
+  ]
+}
