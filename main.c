@@ -23,7 +23,7 @@ typedef struct
     void (*func)(void);
 } task_t;
 
-//task configuration table
+//task configuration table for INTERNAL use
 static task_t tasks[] =
 {
     {CONTINUOUS,    0,  task},
@@ -33,22 +33,29 @@ static task_t tasks[] =
     {INTERVAL_1M,   0,  task_60000ms},
 };
 
+// Tick számláló. Volatile és static for INTERNAL use
 static volatile uint32_t tick = 0;
 
+// UART állapotgépek. A visszatérési típusokat funkció-mutatóra változtattuk.
 void* (*currentUART1Func)(void) = UART1_request_state;
 void* (*currentUART2Func)(void) = UART2_request_state;
+
+// --- Segédmakrók az Atomicitás Biztosítására ---
+// Ezek a makrók letiltják a megszakításokat a kritikus 32-bites olvasások/írások idejére.
+// Az XC8 környezetnek megfelel? INTERRUPT_GlobalInterruptEnable() és Disable() hívásokat használja.
+#define ATOMIC_START    INTERRUPT_GlobalInterruptDisable()
+#define ATOMIC_END      INTERRUPT_GlobalInterruptEnable()
+
 
 /*
                          Main application
  */
 int main()
 {
-    static task_t* p_task;
-    static uint8_t task_index = 0;
+    uint8_t task_index = 0;
     const uint8_t number_of_tasks = sizeof(tasks)/sizeof(task_t);
+    uint32_t current_tick_copy; // Atomikus olvasáshoz
 
-    p_task = tasks;
-    
     // initialize the device
     SYSTEM_Initialize();
     
@@ -69,17 +76,33 @@ int main()
 
     while (1)
     {
+        
+        // 1. lépés: Megszakításmentes (Atomi) olvasás
+        ATOMIC_START;
+        current_tick_copy = tick;
+        ATOMIC_END;
+        
         // Add your application code
         for(task_index=0; task_index<number_of_tasks; task_index++)
         {
-            if(p_task[task_index].interval == 0)
+            if(tasks[task_index].interval == CONTINUOUS)
             {
-                (*p_task[task_index].func)();
+                (*tasks[task_index].func)();
             }
-            else if((tick-p_task[task_index].last_tick) >= p_task[task_index].interval)
+            else if((current_tick_copy - tasks[task_index].last_tick) >= tasks[task_index].interval)
             {
-                (*p_task[task_index].func)();
-                p_task[task_index].last_tick = tick;
+                (*tasks[task_index].func)();
+                
+                // 2. lépés: Anti-drift logikával történ? id?zít? frissítés
+                // A next_tick kiszámítása történhet megszakítás nélkül is,
+                // de a last_tick értékadásához kell az atomicitás.
+                
+                ATOMIC_START;
+                tasks[task_index].last_tick += tasks[task_index].interval;
+                // Megjegyzés: Ha a feladat túl lassan fut, az intervalumot többször is hozzáadhatjuk, 
+                // amíg a last_tick a current_tick_copy elé nem kerül.
+                // Pl.: while (tasks[task_index].last_tick <= current_tick_copy) { tasks[task_index].last_tick += tasks[task_index].interval; }
+                ATOMIC_END;
             }
         }
     }

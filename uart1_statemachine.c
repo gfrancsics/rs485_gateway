@@ -4,6 +4,7 @@
 void send(uint8_t* vector, uint8_t length);
 void calc164(uint8_t* vector, uint32_t powerconsumption);
 
+//comming from uart2_statemachine
 extern uint32_t power_consumption;
 
 void UART1_initialise_logic(void)
@@ -11,6 +12,7 @@ void UART1_initialise_logic(void)
     UART1_RX_EN();
 }
 
+//internal variables, invisible from outside
 static uint16_t address = 0;
 static uint16_t crc = 0;
 
@@ -32,6 +34,9 @@ void* UART1_request_state(void)
                 {
                     byte_cntr = 0; //if not this device, wait until it is
                 }
+                //initialization
+                address = 0;
+                crc = 0;
                 break;
             case 1: //FunctionID
                 if(rx_data != 3)
@@ -77,11 +82,11 @@ void* UART1_request_state(void)
 
 void* UART1_response_state(void)
 {
-    static uint8_t* resp003f = {0xfe, 0x03, 0x02, 0x00, 0x00, 0xac, 0x50};
-    static uint8_t* resp0164[] = {0xfe, 0x03, 0x02, 0x00, 0x00, 0xac, 0x50};
-    static uint8_t* resp000a[] = {0xfe, 0x03, 0x18, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x6F, 0x1F};
-    static uint8_t* resp0061[] = {0xfe, 0x03, 0x06, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x64, 0x81};
-    static uint8_t* resp0077[] = {0xfe, 0x03, 0x02, 0x00, 0x00, 0xac, 0x50};
+    static uint8_t resp003f[] = {0xfe, 0x03, 0x02, 0x00, 0x00, 0xac, 0x50};
+    static uint8_t resp0164[] = {0xfe, 0x03, 0x02, 0x00, 0x00, 0xac, 0x50};
+    static uint8_t resp000a[] = {0xfe, 0x03, 0x18, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x6F, 0x1F};
+    static uint8_t resp0061[] = {0xfe, 0x03, 0x06, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x64, 0x81};
+    static uint8_t resp0077[] = {0xfe, 0x03, 0x02, 0x00, 0x00, 0xac, 0x50};
 
     switch(address)
     {
@@ -110,20 +115,21 @@ void* UART1_response_state(void)
 
 void calc164(uint8_t* vector, uint32_t powerconsumption)
 {
-    static uint16_t crc = 0;
-    vector[3]=powerconsumption >> 8 & 0xff; 
-    vector[4]=powerconsumption & 0xff;
-    for(int i=0;i<5;i++)
+    uint8_t i;
+    uint16_t crc = 0;
+    vector[3]=(uint8_t)(powerconsumption >> 8); 
+    vector[4]=(uint8_t)powerconsumption;
+    for(i=0;i<5;i++)
     {
         crc = update_crc_16(crc, vector[i]);
     }
-    vector[5]=crc >> 8 & 0xff;
-    vector[6]=crc & 0xff;
+    vector[5]=(uint8_t)(crc >> 8);
+    vector[6]=(uint8_t)crc; 
 }
 
 void send(uint8_t* vector, uint8_t length)
 {
-    static uint8_t i;
+    uint8_t i;
     //send request
     UART1_TX_EN();
     for(i=0;i<length;i++)
