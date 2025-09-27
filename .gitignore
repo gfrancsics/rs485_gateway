@@ -2,3 +2,5 @@ build
 dist
 cmake
 _build
+out
+.vs

@@ -5,7 +5,6 @@
 extern "C" {
 #endif
 
-#include "statemachine.h"   
 #include "mcc_generated_files/mcc.h"
 #include "checksum.h"
 
@@ -13,6 +12,8 @@ extern "C" {
 #define UART1_TX_EN() USART_EN1_SetHigh()
 
 void UART1_initialise_logic(void);
+void* UART1_response_state(void);
+void* UART1_request_state(void);
 
 #ifdef	__cplusplus
 }
