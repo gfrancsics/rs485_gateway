@@ -10,9 +10,9 @@ CND_CONF=default
 CND_DISTDIR=dist
 TMPDIR=build/${CND_CONF}/${IMAGE_TYPE}/tmp-packaging
 TMPDIRNAME=tmp-packaging
-OUTPUT_PATH=dist/${CND_CONF}/${IMAGE_TYPE}/Rs485Gateway.X.${IMAGE_TYPE}.${OUTPUT_SUFFIX}
-OUTPUT_BASENAME=Rs485Gateway.X.${IMAGE_TYPE}.${OUTPUT_SUFFIX}
-PACKAGE_TOP_DIR=rs485gateway.x/
+OUTPUT_PATH=dist/${CND_CONF}/${IMAGE_TYPE}/rs485_gateway.${IMAGE_TYPE}.${OUTPUT_SUFFIX}
+OUTPUT_BASENAME=rs485_gateway.${IMAGE_TYPE}.${OUTPUT_SUFFIX}
+PACKAGE_TOP_DIR=rs485gateway/
 
 # Functions
 function checkReturnCode
@@ -57,15 +57,15 @@ mkdir -p ${TMPDIR}
 
 # Copy files and create directories and links
 cd "${TOP}"
-makeDirectory ${TMPDIR}/rs485gateway.x/bin
+makeDirectory ${TMPDIR}/rs485gateway/bin
 copyFileToTmpDir "${OUTPUT_PATH}" "${TMPDIR}/${PACKAGE_TOP_DIR}bin/${OUTPUT_BASENAME}" 0755
 
 
 # Generate tar file
 cd "${TOP}"
-rm -f ${CND_DISTDIR}/${CND_CONF}/package/rs485gateway.x.tar
+rm -f ${CND_DISTDIR}/${CND_CONF}/package/rs485gateway.tar
 cd ${TMPDIR}
-tar -vcf ../../../../${CND_DISTDIR}/${CND_CONF}/package/rs485gateway.x.tar *
+tar -vcf ../../../../${CND_DISTDIR}/${CND_CONF}/package/rs485gateway.tar *
 checkReturnCode
 
 # Cleanup

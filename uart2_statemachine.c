@@ -1,6 +1,6 @@
 #include "uart2_statemachine.h"
 
-static uint32_t power_consumption;
+uint32_t power_consumption;
 
 void UART2_initialise_logic(void)
 {    
@@ -45,13 +45,13 @@ void* UART2_response_state(void)
             case 2: //Length
                 break;
             case 3: //0x2004 HIGH
-                power_consumption = power_consumption + rx_data << 24;
+                power_consumption = power_consumption + (rx_data << 24);
                 break;
             case 4: //0x2004 LOW
-                power_consumption = power_consumption + rx_data << 16;
+                power_consumption = power_consumption + (rx_data << 16);
                 break;
             case 5: //0x2005 HIGH
-                power_consumption = power_consumption + rx_data << 8;
+                power_consumption = power_consumption + (rx_data << 8);
                 break;
             case 6: //0x2005 LOW
                 power_consumption = power_consumption + rx_data;
