@@ -1,0 +1,15 @@
+{
+    "configurations": [
+        {
+            "name": "MPLAB",
+            "includePath": [
+                "${workspaceFolder}",
+                "${workspaceFolder}/mcc_generated_files"
+            ],
+            "compilerPath": "C:/Program Files/Microchip/xc8/v2.40/bin/xc8.exe",
+            "intelliSenseMode": "gcc-x86"
+
+        }
+    ],
+    "version": 4
+}
