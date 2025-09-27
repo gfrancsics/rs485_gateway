@@ -2,3 +2,6 @@ build
 dist
 cmake
 _build
+.vs
+nbproject
+out
