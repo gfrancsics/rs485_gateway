@@ -23,10 +23,11 @@ typedef struct
     void (*func)(void);
 } task_t;
 
+typedef void* (*StateFunction)(void);
+
 //task configuration table for INTERNAL use
 static task_t tasks[] =
 {
-    {CONTINUOUS,    0,  task},
     {INTERVAL_10MS, 0,  task_10ms},
     {INTERVAL_100MS,0,  task_100ms},
     {INTERVAL_1S,   0,  task_1000ms},
@@ -37,8 +38,8 @@ static task_t tasks[] =
 static volatile uint32_t tick = 0;
 
 // UART állapotgépek. A visszatérési típusokat funkció-mutatóra változtattuk.
-void* (*currentUART1Func)(void) = UART1_request_state;
-void* (*currentUART2Func)(void) = UART2_request_state;
+StateFunction currentUART1Func = UART1_request_state;
+StateFunction currentUART2Func = UART2_request_state;
 
 // --- Segédmakrók az Atomicitás Biztosítására ---
 // Ezek a makrók letiltják a megszakításokat a kritikus 32-bites olvasások/írások idejére.
@@ -118,14 +119,12 @@ void task_10ms(void)
 
 void task_100ms(void)
 {
-    void* value1 = currentUART1Func();
-    currentUART1Func = value1;
-    void* value2 = currentUART2Func();
-    currentUART2Func = value2;
 }
 
 void task_1000ms(void)
 {
+    currentUART2Func = (StateFunction)currentUART2Func();
+    currentUART1Func = (StateFunction)currentUART1Func();
     LED_Toggle();
 }
 
