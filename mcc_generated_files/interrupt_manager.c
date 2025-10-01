@@ -58,13 +58,13 @@ void  INTERRUPT_Initialize (void)
 void __interrupt() INTERRUPT_InterruptManager (void)
 {
     // interrupt handler
-    if(PIE8bits.U2RXIE == 1 && PIR8bits.U2RXIF == 1)
-    {
-        UART2_RxInterruptHandler();
-    }
-    else if(PIE4bits.U1RXIE == 1 && PIR4bits.U1RXIF == 1)
+    if(PIE4bits.U1RXIE == 1 && PIR4bits.U1RXIF == 1)
     {
         UART1_RxInterruptHandler();
+    }
+    else if(PIE8bits.U2RXIE == 1 && PIR8bits.U2RXIF == 1)
+    {
+        UART2_RxInterruptHandler();
     }
     else if(PIE3bits.TMR1IE == 1 && PIR3bits.TMR1IF == 1)
     {
