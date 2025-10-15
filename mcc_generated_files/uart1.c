@@ -53,13 +53,17 @@
 /**
   Section: Macro Declarations
 */
-#define UART1_TX_BUFFER_SIZE 10
-#define UART1_RX_BUFFER_SIZE 10
+#define UART1_TX_BUFFER_SIZE 16
+#define UART1_RX_BUFFER_SIZE 16
 
 /**
   Section: Global Variables
 */
 
+static volatile uint8_t uart1TxHead = 0;
+static volatile uint8_t uart1TxTail = 0;
+static volatile uint8_t uart1TxBuffer[UART1_TX_BUFFER_SIZE];
+volatile uint8_t uart1TxBufferRemaining;
 
 static volatile uint8_t uart1RxHead = 0;
 static volatile uint8_t uart1RxTail = 0;
@@ -84,6 +88,8 @@ void UART1_Initialize(void)
     // Disable interrupts before changing states
     PIE4bits.U1RXIE = 0;
     UART1_SetRxInterruptHandler(UART1_Receive_ISR);
+    PIE4bits.U1TXIE = 0;
+    UART1_SetTxInterruptHandler(UART1_Transmit_ISR);
 
     // Set the UART1 module to the options selected in the user interface.
 
@@ -139,6 +145,10 @@ void UART1_Initialize(void)
 
     uart1RxLastError.status = 0;
 
+    // initializing the driver state
+    uart1TxHead = 0;
+    uart1TxTail = 0;
+    uart1TxBufferRemaining = sizeof(uart1TxBuffer);
     uart1RxHead = 0;
     uart1RxTail = 0;
     uart1RxCount = 0;
@@ -154,7 +164,7 @@ bool UART1_is_rx_ready(void)
 
 bool UART1_is_tx_ready(void)
 {
-    return (bool)(PIR4bits.U1TXIF && U1CON0bits.TXEN);
+    return (uart1TxBufferRemaining ? true : false);
 }
 
 bool UART1_is_tx_done(void)
@@ -164,6 +174,40 @@ bool UART1_is_tx_done(void)
 
 uart1_status_t UART1_get_last_status(void){
     return uart1RxLastError;
+}
+
+bool UART1_Read_NonBlocking(uint8_t *pData)
+{
+    // ELLEN?RIZD a bemeneti pointert
+    if (pData == NULL) {
+        return false; 
+    }
+
+    // Csak akkor olvass, ha van adat
+    if (uart1RxCount > 0)
+    {
+        // 1. Atomicitás biztosítása (Megszakítás letiltás)
+        PIE4bits.U1RXIE = 0; 
+        
+        // 2. Adat kiolvasása a MÚTATÓN KERESZTÜL
+        uart1RxLastError = uart1RxStatusBuffer[uart1RxTail];
+
+        *pData = uart1RxBuffer[uart1RxTail++]; // <-- Az adat ide kerül
+        
+        // 3. Puffer kezelés (MCC logika)
+        if(sizeof(uart1RxBuffer) <= uart1RxTail)
+        {
+            uart1RxTail = 0;
+        }
+        uart1RxCount--;
+        
+        // 4. Megszakítás visszaengedélyezése
+        PIE4bits.U1RXIE = 1; 
+
+        return true; // SIKER! Volt adat.
+    }
+    
+    return false; // SIKERTELEN! Nincs adat.
 }
 
 uint8_t UART1_Read(void)
@@ -188,18 +232,84 @@ uint8_t UART1_Read(void)
     return readValue;
 }
 
+bool UART1_Write_NonBlocking(uint8_t txData)
+{
+    // Változás: Csak akkor írj, ha van hely (UART1_is_tx_ready)
+    if (uart1TxBufferRemaining > 0)
+    {
+        // Az eredeti MCC logika:
+        if(0 == PIE4bits.U1TXIE)
+        {
+            // Ha a megszakítás le van tiltva, közvetlenül a hardverbe írjuk az ELS? bájtot
+            U1TXB = txData; 
+        }
+        else
+        {
+            // Megszakítás letiltása (atomicitás)
+            PIE4bits.U1TXIE = 0; 
+            
+            uart1TxBuffer[uart1TxHead++] = txData;
+            if(sizeof(uart1TxBuffer) <= uart1TxHead)
+            {
+                uart1TxHead = 0;
+            }
+            uart1TxBufferRemaining--;
+        }
+        
+        // Engedélyezzük a TX megszakítást, hogy az ISR küldje a többi bájtot
+        PIE4bits.U1TXIE = 1; 
+        
+        return true; // Sikeres pufferelés
+    }
+    return false; // Nincs hely, pufferelés blokkolva
+}
+
 void UART1_Write(uint8_t txData)
 {
-    while(0 == PIR4bits.U1TXIF)
+    while(0 == uart1TxBufferRemaining)
     {
     }
 
-    U1TXB = txData;    // Write the data byte to the USART.
+    if(0 == PIE4bits.U1TXIE)
+    {
+        U1TXB = txData;
+    }
+    else
+    {
+        PIE4bits.U1TXIE = 0;
+        uart1TxBuffer[uart1TxHead++] = txData;
+        if(sizeof(uart1TxBuffer) <= uart1TxHead)
+        {
+            uart1TxHead = 0;
+        }
+        uart1TxBufferRemaining--;
+    }
+    PIE4bits.U1TXIE = 1;
 }
 
 
 
 
+
+void UART1_Transmit_ISR(void)
+{
+    // use this default transmit interrupt handler code
+    if(sizeof(uart1TxBuffer) > uart1TxBufferRemaining)
+    {
+        U1TXB = uart1TxBuffer[uart1TxTail++];
+       if(sizeof(uart1TxBuffer) <= uart1TxTail)
+        {
+            uart1TxTail = 0;
+        }
+        uart1TxBufferRemaining++;
+    }
+    else
+    {
+        PIE4bits.U1TXIE = 0;
+    }
+    
+    // or set custom function using UART1_SetTxInterruptHandler()
+}
 
 void UART1_Receive_ISR(void)
 {
@@ -261,6 +371,9 @@ void UART1_SetRxInterruptHandler(void (* InterruptHandler)(void)){
     UART1_RxInterruptHandler = InterruptHandler;
 }
 
+void UART1_SetTxInterruptHandler(void (* InterruptHandler)(void)){
+    UART1_TxInterruptHandler = InterruptHandler;
+}
 
 
 /**

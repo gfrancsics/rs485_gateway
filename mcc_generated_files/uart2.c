@@ -53,13 +53,17 @@
 /**
   Section: Macro Declarations
 */
-#define UART2_TX_BUFFER_SIZE 10
-#define UART2_RX_BUFFER_SIZE 10
+#define UART2_TX_BUFFER_SIZE 16
+#define UART2_RX_BUFFER_SIZE 16
 
 /**
   Section: Global Variables
 */
 
+static volatile uint8_t uart2TxHead = 0;
+static volatile uint8_t uart2TxTail = 0;
+static volatile uint8_t uart2TxBuffer[UART2_TX_BUFFER_SIZE];
+volatile uint8_t uart2TxBufferRemaining;
 
 static volatile uint8_t uart2RxHead = 0;
 static volatile uint8_t uart2RxTail = 0;
@@ -84,6 +88,8 @@ void UART2_Initialize(void)
     // Disable interrupts before changing states
     PIE8bits.U2RXIE = 0;
     UART2_SetRxInterruptHandler(UART2_Receive_ISR);
+    PIE8bits.U2TXIE = 0;
+    UART2_SetTxInterruptHandler(UART2_Transmit_ISR);
 
     // Set the UART2 module to the options selected in the user interface.
 
@@ -130,6 +136,10 @@ void UART2_Initialize(void)
 
     uart2RxLastError.status = 0;
 
+    // initializing the driver state
+    uart2TxHead = 0;
+    uart2TxTail = 0;
+    uart2TxBufferRemaining = sizeof(uart2TxBuffer);
     uart2RxHead = 0;
     uart2RxTail = 0;
     uart2RxCount = 0;
@@ -145,7 +155,7 @@ bool UART2_is_rx_ready(void)
 
 bool UART2_is_tx_ready(void)
 {
-    return (bool)(PIR8bits.U2TXIF && U2CON0bits.TXEN);
+    return (uart2TxBufferRemaining ? true : false);
 }
 
 bool UART2_is_tx_done(void)
@@ -179,18 +189,116 @@ uint8_t UART2_Read(void)
     return readValue;
 }
 
+bool UART2_Read_NonBlocking(uint8_t *pData)
+{
+    // ELLEN?RIZD a bemeneti pointert
+    if (pData == NULL) {
+        return false; 
+    }
+
+    // Csak akkor olvass, ha van adat
+    if (uart2RxCount > 0)
+    {
+        // 1. Atomicitás biztosítása (Megszakítás letiltás)
+        PIE8bits.U2TXIE = 0; 
+        
+        // 2. Adat kiolvasása a MÚTATÓN KERESZTÜL
+        uart2RxLastError = uart2RxStatusBuffer[uart2RxTail];
+
+        *pData = uart2RxBuffer[uart2RxTail++]; // <-- Az adat ide kerül
+        
+        // 3. Puffer kezelés (MCC logika)
+        if(sizeof(uart2RxBuffer) <= uart2RxTail)
+        {
+            uart2RxTail = 0;
+        }
+        uart2RxCount--;
+        
+        // 4. Megszakítás visszaengedélyezése
+        PIE8bits.U2TXIE = 1; 
+
+        return true; // SIKER! Volt adat.
+    }
+    
+    return false; // SIKERTELEN! Nincs adat.
+}
+
 void UART2_Write(uint8_t txData)
 {
-    while(0 == PIR8bits.U2TXIF)
+    while(0 == uart2TxBufferRemaining)
     {
     }
 
-    U2TXB = txData;    // Write the data byte to the USART.
+    if(0 == PIE8bits.U2TXIE)
+    {
+        U2TXB = txData;
+    }
+    else
+    {
+        PIE8bits.U2TXIE = 0;
+        uart2TxBuffer[uart2TxHead++] = txData;
+        if(sizeof(uart2TxBuffer) <= uart2TxHead)
+        {
+            uart2TxHead = 0;
+        }
+        uart2TxBufferRemaining--;
+    }
+    PIE8bits.U2TXIE = 1;
+}
+
+bool UART2_Write_NonBlocking(uint8_t txData)
+{
+    // Változás: Csak akkor írj, ha van hely (UART1_is_tx_ready)
+    if (uart2TxBufferRemaining > 0)
+    {
+        // Az eredeti MCC logika:
+        if(0 == PIE8bits.U2TXIE)
+        {
+            // Ha a megszakítás le van tiltva, közvetlenül a hardverbe írjuk az ELS? bájtot
+            U2TXB = txData; 
+        }
+        else
+        {
+            // Megszakítás letiltása (atomicitás)
+            PIE8bits.U2TXIE = 0; 
+            
+            uart2TxBuffer[uart2TxHead++] = txData;
+            if(sizeof(uart2TxBuffer) <= uart2TxHead)
+            {
+                uart2TxHead = 0;
+            }
+            uart2TxBufferRemaining--;
+        }
+        
+        // Engedélyezzük a TX megszakítást, hogy az ISR küldje a többi bájtot
+        PIE8bits.U2TXIE = 1; 
+        
+        return true; // Sikeres pufferelés
+    }
+    return false; // Nincs hely, pufferelés blokkolva
 }
 
 
 
-
+void UART2_Transmit_ISR(void)
+{
+    // use this default transmit interrupt handler code
+    if(sizeof(uart2TxBuffer) > uart2TxBufferRemaining)
+    {
+        U2TXB = uart2TxBuffer[uart2TxTail++];
+       if(sizeof(uart2TxBuffer) <= uart2TxTail)
+        {
+            uart2TxTail = 0;
+        }
+        uart2TxBufferRemaining++;
+    }
+    else
+    {
+        PIE8bits.U2TXIE = 0;
+    }
+    
+    // or set custom function using UART2_SetTxInterruptHandler()
+}
 
 void UART2_Receive_ISR(void)
 {
@@ -252,6 +360,9 @@ void UART2_SetRxInterruptHandler(void (* InterruptHandler)(void)){
     UART2_RxInterruptHandler = InterruptHandler;
 }
 
+void UART2_SetTxInterruptHandler(void (* InterruptHandler)(void)){
+    UART2_TxInterruptHandler = InterruptHandler;
+}
 
 
 /**

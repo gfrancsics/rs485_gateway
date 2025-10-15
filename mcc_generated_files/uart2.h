@@ -354,6 +354,31 @@ uart2_status_t UART2_get_last_status(void);
 */
 uint8_t UART2_Read(void);
 
+/**
+  @Summary
+    Read a byte of data from the UART1 on a NON BLOCKING WAY.
+
+  @Description
+    This routine reads a byte of data from the UART1. If the UART1 is empty
+    then it does not wait at the beginning of the function until the first byte
+    arrives. This is the only difference between this and the original read function.
+ 
+  @Preconditions
+    UART1_Initialize() function should have been called
+    before calling this function. The transfer status should be checked to see
+    if the receiver is not empty before calling this function.
+	
+	UART1_DataReady is a macro which checks if any byte is received.
+	Call this macro before using this function.
+
+  @Param
+    None
+
+  @Returns
+    A data byte received by the driver.
+ */
+bool UART2_Read_NonBlocking(uint8_t *pData);
+
  /**
   @Summary
     Writes a byte of data to the UART2.
@@ -379,6 +404,49 @@ uint8_t UART2_Read(void);
 */
 void UART2_Write(uint8_t txData);
 
+/**
+  @Summary
+    Writes a byte of data to the UART1 on a NON BLOCKING WAY.
+
+  @Description
+    This routine writes a byte of data to the UART1. If the UART1 is full
+    then it does not wait at the beginning of the function until the first byte
+    arrives. This is the only difference between this and the original read function.
+
+  @Preconditions
+    UART1_Initialize() function should have been called
+    before calling this function. The transfer status should be checked to see
+    if transmitter is not busy before calling this function.
+
+  @Param
+    txData  - Data byte to write to the UART1
+
+  @Returns
+    None
+
+*/
+bool UART2_Write_NonBlocking(uint8_t txData);
+
+/**
+  @Summary
+    Maintains the driver's transmitter state machine and implements its ISR.
+
+  @Description
+    This routine is used to maintain the driver's internal transmitter state
+    machine.This interrupt service routine is called when the state of the
+    transmitter needs to be maintained in a non polled manner.
+
+  @Preconditions
+    UART2_Initialize() function should have been called
+    for the ISR to execute correctly.
+
+  @Param
+    None
+
+  @Returns
+    None
+*/     
+void UART2_Transmit_ISR(void);
 
 /**
   @Summary
@@ -496,6 +564,23 @@ void UART2_SetErrorHandler(void (* interruptHandler)(void));
 */
 void (*UART2_RxInterruptHandler)(void);
 
+/**
+  @Summary
+    UART2 Transmit Interrupt Handler
+
+  @Description
+    This is a pointer to the function that will be called upon UART2 transmit interrupt
+
+  @Preconditions
+    Initialize  the UART2 module with transmit interrupt enabled
+
+  @Param
+    None
+
+  @Returns
+    None
+*/
+void (*UART2_TxInterruptHandler)(void);
 
 
 
@@ -517,6 +602,23 @@ void (*UART2_RxInterruptHandler)(void);
 */
 void UART2_SetRxInterruptHandler(void (* InterruptHandler)(void));
 
+/**
+  @Summary
+    Set UART2 Transmit Interrupt Handler
+
+  @Description
+    This API sets the function to be called upon UART2 transmit interrupt
+
+  @Preconditions
+    Initialize  the UART2 module with transmit interrupt enabled before calling this API
+
+  @Param
+    Address of function to be set as transmit interrupt handler
+
+  @Returns
+    None
+*/
+void UART2_SetTxInterruptHandler(void (* InterruptHandler)(void));
 
 
 
