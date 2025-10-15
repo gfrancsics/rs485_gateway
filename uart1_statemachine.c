@@ -4,20 +4,7 @@
 dynamic_funtion_t send(uint8_t* vector, uint8_t length);
 void calc164(uint8_t* vector, uint32_t powerconsumption);
 
-typedef union {
-    uint32_t i; // 32-bites egész szám
-    float    f; // 32-bites lebeg?pontos szám
-} float_converter_t;
-
-typedef enum {
-    SEND_STATE_IDLE,          // Alaphelyzet, nincs küldés
-    SEND_STATE_TRANSMITTING,  // Küldés folyamatban van (bájtok a pufferben)
-    SEND_STATE_WAIT_TX_DONE,  // Utolsó bájt elküldve, várás a Shift Register kiürülésére
-    SEND_STATE_T3_5_DELAY,    // T3.5 késleltetés, ami a keret végét jelöli
-    SEND_STATE_COMPLETE       // Küldés kész, visszaváltás megtörtént
-} send_states_t;
-
-//comming from uart2_statemachine
+//bejön az uart2_statemachine-b?l
 extern uint32_t power_consumption;
 
 void UART1_initialise_logic(void)
@@ -30,7 +17,6 @@ static uint16_t address = 0;
 
 dynamic_funtion_t UART1_request_state(void)
 {
-    //TODO: megnézni hogy gyorsabb-e ha nem static függvény alatti szkópú
     static uint8_t byte_cntr;
     static uint8_t rx_buffer[8];
     uint16_t crc;
@@ -54,20 +40,19 @@ dynamic_funtion_t UART1_request_state(void)
         switch(byte_cntr)
         {
             case 0: // SlaveID (SlaveID-t a 0. indexen tároltuk)
-                //if(rx_buffer[0] != 254) // Ha nem a mi címünk
-                //{
-                    //byte_cntr = 0; // Maradunk a 0. bájtnál, ha jön a jó cím
-                    //continue;      // <-- JAVÍTÁS: Kihagyjuk a byte_cntr növelését
-                //}
+                if(rx_buffer[0] != 254) // Ha nem a mi címünk
+                {
+                    byte_cntr = 0; // Maradunk a 0. bájtnál, ha jön a jó cím
+                    continue;      // <-- JAVÍTÁS: Kihagyjuk a byte_cntr növelését
+                }
                 break;
             
             case 1: // FunctionID (FunctionID-t az 1. indexen tároltuk)
-                //if(rx_buffer[1] != 3) // Modbus: Read Holding Registers
-                //{
-                    //byte_cntr = 0; // Újra a SlaveID-re vár
-                    //received = 0;
-                    //continue;      // <-- JAVÍTÁS: Kihagyjuk a byte_cntr növelését
-                //}
+                if(rx_buffer[1] != 3) // Modbus: Read Holding Registers
+                {
+                    byte_cntr = 0; // Újra a SlaveID-re vár
+                    continue;      // <-- JAVÍTÁS: Kihagyjuk a byte_cntr növelését
+                }
                 break;
 
             case 7: // CRC HIGH (Utolsó bájt: a 8. bájt a 7. indexen)
@@ -102,8 +87,10 @@ dynamic_funtion_t UART1_request_state(void)
 
 dynamic_funtion_t UART1_response_state(void)
 {
+    //TODO: ezek legyenek static-ok vazgy const és kerüljön a program memóriába???
+    //ha static akkor a RAMba kerülne
     static uint8_t resp003f[] = {0xfe, 0x03, 0x02, 0x00, 0x00, 0xac, 0x50};
-    static uint8_t resp0164[] = {0xfe, 0x03, 0x16, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xac, 0x50};
+    static uint8_t resp0164[] = {0xfe, 0x03, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xac, 0x50};
     static uint8_t resp000a[] = {0xfe, 0x03, 0x18, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x6F, 0x1F};
     static uint8_t resp0061[] = {0xfe, 0x03, 0x06, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x64, 0x81};
     static uint8_t resp0077[] = {0xfe, 0x03, 0x02, 0x00, 0x00, 0xac, 0x50};
@@ -134,38 +121,114 @@ dynamic_funtion_t UART1_response_state(void)
     return result;
 }
 
+// UNION a 32 bites érték bájtokra bontására
+typedef union {
+    uint32_t u32;
+    uint8_t bytes[4];
+} u32_to_bytes_t;
+
+// UNION a float és az integer azonos memóriahelyen való elérésére
+typedef union {
+    uint32_t i; // 32-bites egész szám
+    float    f; // 32-bites lebeg?pontos szám
+} float_converter_t;
+
 void calc164(uint8_t* vector, uint32_t powerconsumption)
 {
-    uint8_t i;
-    uint16_t crc = 0;
-    float_converter_t raw_value;
-    uint32_t converted_value;
+    // A register kulcsszó a PIC-en segíti a gyorsabb hozzáférést a 8 bites regiszterekhez.
+    register uint16_t crc = 0; 
     
-    raw_value.i = powerconsumption;
-    converted_value = (uint32_t)(raw_value.f*20000);
+    // Union a bemenet kezelésére és a manipulációra
+    float_converter_t val_to_scale;
     
-    vector[7]=(uint8_t)(converted_value >> 24); 
-    vector[8]=(uint8_t)(converted_value >> 16);
-    vector[9]=(uint8_t)(converted_value >> 8);
-    vector[10]=(uint8_t)(converted_value);
-    vector[11]=(uint8_t)(converted_value >> 24); 
-    vector[12]=(uint8_t)(converted_value >> 16);
-    vector[13]=(uint8_t)(converted_value >> 8);
-    vector[14]=(uint8_t)(converted_value);
-    for(i=0;i<19;i++)
-    {
-        crc = update_crc_16(crc, vector[i]);
-    }
-    //CRC LOW
-    vector[20]=(uint8_t)crc; 
-    //CRC HIGH
-    vector[21]=(uint8_t)(crc >> 8);
+    // Union a kimeneti bájtok könnyebb írásához
+    u32_to_bytes_t val_alias;
+    
+    // A 32 bit bejön, mint IEEE 754
+    val_to_scale.i = powerconsumption;
+    
+    // ===============================================================
+    // 1. A KRITIKUS GYORSÍTÓ LÉPÉS: F * 2^14 (Bitmanipuláció)
+    // ===============================================================
+    
+    // A kitev? a bit 23-tól 30-ig van (8 bit). A 32 bites szón belül a 23. bit helyén kezd?dik.
+    // Ezzel a 32 bites változóval (val_to_scale.u32) operálunk.
+    
+    // A C kód szimplán így néz ki:
+    // val_to_scale.u32 += (14 << 23); 
+    // VAGY egy maszkolással biztonságosabb:
+
+    #define EXPONENT_MASK_SHIFT (8) // A kitev? 8 bit
+    #define EXPONENT_POSITION   (23) // A kitev? kezd? bitje
+    #define EXPONENT_INCREMENT  (14) // 2^14-gyel szorzás
+
+    // Hozzáadjuk a 14-et a 8 bites kitev?höz.
+    // Mivel a 32 bites int-en van, ez a 32 bites hozzáadás (ha XC8 jól csinálja), 
+    // de csak 8 biten módosít, és elkerüli a lassú float szorzást.
+    val_to_scale.i += (uint32_t)EXPONENT_INCREMENT << EXPONENT_POSITION;
+
+    // A lebeg?pontos érték most $F \times 2^{14}$
+    
+    // 2. INTEGER KONVERZIÓ (Elkerülhetetlen, lassú lépés)
+    // Az egész részt vesszük: (uint32_t) (F * 16384.0f)
+    val_alias.u32 = (uint32_t)val_to_scale.f; 
+
+    // ===============================================================
+    // 3. ADATÍRÁS ÉS CRC (Optimalizálva)
+    // ===============================================================
+
+    // Bájtok írása (Union-al)
+    vector[7] = val_alias.bytes[3]; // MSB
+    vector[8] = val_alias.bytes[2];
+    vector[9] = val_alias.bytes[1];
+    vector[10] = val_alias.bytes[0]; // LSB
+
+    // Második példány
+    vector[11] = val_alias.bytes[3]; 
+    vector[12] = val_alias.bytes[2];
+    vector[13] = val_alias.bytes[1];
+    vector[14] = val_alias.bytes[0];
+    
+    // CRC számítás (Ciklus Unroll, ahogy korábban javasoltuk)
+    // Feltételezve 19 bájtos CRC (index 0-tól 18-ig)
+    crc = 0;
+    crc = update_crc_16(crc, vector[0]);
+    crc = update_crc_16(crc, vector[1]);
+    crc = update_crc_16(crc, vector[2]);
+    crc = update_crc_16(crc, vector[3]);
+    crc = update_crc_16(crc, vector[4]);
+    crc = update_crc_16(crc, vector[5]);
+    crc = update_crc_16(crc, vector[6]);
+    crc = update_crc_16(crc, vector[7]);
+    crc = update_crc_16(crc, vector[8]);
+    crc = update_crc_16(crc, vector[9]);
+    crc = update_crc_16(crc, vector[11]);
+    crc = update_crc_16(crc, vector[11]);
+    crc = update_crc_16(crc, vector[12]);
+    crc = update_crc_16(crc, vector[13]);
+    crc = update_crc_16(crc, vector[14]);
+    crc = update_crc_16(crc, vector[15]);
+    crc = update_crc_16(crc, vector[16]);
+    crc = update_crc_16(crc, vector[17]);
+    crc = update_crc_16(crc, vector[18]);
+    
+    // CRC LOW
+    vector[19] = (uint8_t)crc; 
+    // CRC HIGH
+    vector[20] = (uint8_t)(crc >> 8);
 }
+
+
+typedef enum {
+    SEND_STATE_IDLE,          // Alaphelyzet, nincs küldés
+    SEND_STATE_TRANSMITTING,  // Küldés folyamatban van (bájtok a pufferben)
+    SEND_STATE_WAIT_TX_DONE,  // Utolsó bájt elküldve, várás a Shift Register kiürülésére
+    SEND_STATE_T3_5_DELAY,    // T3.5 késleltetés, ami a keret végét jelöli
+    SEND_STATE_COMPLETE       // Küldés kész, visszaváltás megtörtént
+} send_states_t;
 
 dynamic_funtion_t send(uint8_t* vector, uint8_t length)
 {
-    //TODO: lehet ha nem függvény alatti szkópú akkor gyorsabb?
-    //megnézni
     static send_states_t tx_state = SEND_STATE_IDLE;
     static uint8_t byte_cnt = 0;
 
