@@ -272,7 +272,7 @@ dynamic_funtion_t send(uint8_t* vector, uint8_t length)
             // Várjuk meg, amíg a T3.5 id?zít? lejár
             //if (TIMER_T3_5_IsExpired()) {
                 // *** EZ A KRITIKUS PONT: ÁTKAPCSOLÁS RX-RE ***
-                __delay_ms(4);
+                __delay_ms(3);
                 UART1_RX_EN(); 
                 tx_state = SEND_STATE_IDLE; // Vissza az alaphelyzetbe
                 return FUNC_REQ; // SIKERES KÜLDÉS VÉGE
