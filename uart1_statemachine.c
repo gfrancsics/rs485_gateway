@@ -172,7 +172,7 @@ void calc164(uint8_t* vector, uint32_t powerconsumption)
     // 2. INTEGER KONVERZIÓ (Elkerülhetetlen, lassú lépés)
     // Az egész részt vesszük: (uint32_t) (F * 16384.0f)
     val_alias.u32 = (uint32_t)val_to_scale.f; 
-
+    
     // ===============================================================
     // 3. ADATÍRÁS ÉS CRC (Optimalizálva)
     // ===============================================================

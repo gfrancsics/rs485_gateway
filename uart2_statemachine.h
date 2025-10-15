@@ -7,13 +7,14 @@ extern "C" {
 
 #include "mcc_generated_files/mcc.h"
 #include "checksum.h"
+#include "uart_common_types.h"
 
 #define UART2_RX_EN() USART_EN2_SetLow()
 #define UART2_TX_EN() USART_EN2_SetHigh()
-
+    
 void UART2_initialise_logic(void);
-void* UART2_request_state(void);
-void* UART2_response_state(void);
+dynamic_funtion_t UART2_request_state(void);
+dynamic_funtion_t UART2_response_state(void);
 
 #ifdef	__cplusplus
 }

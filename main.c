@@ -108,24 +108,30 @@ void task(void)
 {
 }
 
-static dynamic_funtion_t current_state=FUNC_REQ;
+static dynamic_funtion_t current_uart1_state=FUNC_REQ;
 
 void task_10ms(void)
 {
-    if(current_state==FUNC_REQ) {
-        current_state = UART1_request_state();
+    if(current_uart1_state==FUNC_REQ) {
+        current_uart1_state = UART1_request_state();
     } else {
-        current_state = UART1_response_state();
+        current_uart1_state = UART1_response_state();
     }
 }
 
 void task_100ms(void)
 {
-    
 }
+
+static dynamic_funtion_t current_uart2_state=FUNC_REQ;
 
 void task_1000ms(void)
 {
+    if(current_uart2_state==FUNC_REQ) {
+        current_uart2_state = UART2_request_state();
+    } else {
+        current_uart2_state = UART2_response_state();
+    }
     LED_Toggle();
 }
 

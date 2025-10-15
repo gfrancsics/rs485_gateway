@@ -7,14 +7,10 @@ extern "C" {
 
 #include "mcc_generated_files/mcc.h"
 #include "checksum.h"
+#include "uart_common_types.h"
 
 #define UART1_RX_EN() USART_EN1_SetLow()
 #define UART1_TX_EN() USART_EN1_SetHigh()
-    
-typedef enum {
-    FUNC_REQ,
-    FUNC_RESP
-} dynamic_funtion_t;
 
 /**
  * HOWTO USE

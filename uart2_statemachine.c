@@ -7,7 +7,7 @@ void UART2_initialise_logic(void)
     UART2_TX_EN();
 }
 
-void* UART2_request_state(void)
+dynamic_funtion_t UART2_request_state(void)
 {
     // Frame: SlaveId, FunctionId, Address Hight, Address Low, Register number High, register number Low, CRC Low!, CRC High
     // In case of CRC we use Little Endian order
@@ -34,16 +34,16 @@ void* UART2_request_state(void)
         byte_cnt = 0;
         //after the last bit, the frame is ended, we change the mode
         UART2_RX_EN();
-        return UART2_response_state;
+        return FUNC_RESP;
     }
     else
     {
-        return UART2_request_state;
+        return FUNC_REQ;
     }
     
 }
 
-void* UART2_response_state(void)
+dynamic_funtion_t UART2_response_state(void)
 {
     static uint8_t received = 0;
     static uint8_t byte_cntr = 0;
@@ -87,11 +87,11 @@ void* UART2_response_state(void)
     {
         received = 0;
         byte_cntr = 0;
-        return UART2_request_state;
+        return FUNC_REQ;
     }
     else
     {
-        return UART2_response_state;
+        return FUNC_RESP;
     }
 }
 
