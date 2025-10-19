@@ -76,6 +76,8 @@ uint16_t		update_crc_sick(    uint16_t crc, unsigned char c, unsigned char prev_
 extern const uint32_t	crc_tab32[];
 extern const uint64_t	crc_tab64[];
 
+uint16_t update_crc_16_simple( uint16_t crc, unsigned char c );
+
 #ifdef __cplusplus
 }// Extern C
 #endif

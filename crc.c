@@ -21,6 +21,22 @@ uint16_t update_crc_16( uint16_t crc, unsigned char c ) {
 
 }  /* update_crc_16 */
 
+/* update_crc_16 (bit-a-time verzió, konstans tábla nélkül!)
+ * inicializálni crc=0xFFFF
+ */
+uint16_t update_crc_16_simple( uint16_t crc, unsigned char c ) {
+    uint8_t i;
+    crc = crc ^ (uint16_t)c; // XOR a bemeneti bájttal
+    for (i = 0; i < 8; i++)
+    {
+        if (crc & 0x0001)
+            crc = (crc >> 1) ^ CRC_POLY_16;
+        else
+            crc = (crc >> 1);
+    }
+    return crc;
+}
+
 /*
  * static void init_crc16_tab( void );
  *
