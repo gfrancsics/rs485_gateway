@@ -202,7 +202,7 @@ void calc164(uint8_t* vector, uint32_t powerconsumption)
     crc = update_crc_16(crc, vector[7]);
     crc = update_crc_16(crc, vector[8]);
     crc = update_crc_16(crc, vector[9]);
-    crc = update_crc_16(crc, vector[11]);
+    crc = update_crc_16(crc, vector[10]);
     crc = update_crc_16(crc, vector[11]);
     crc = update_crc_16(crc, vector[12]);
     crc = update_crc_16(crc, vector[13]);
