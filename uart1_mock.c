@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "./mcc_generated_files/uart1.h"
+#include "./mcc_generated_files/mcc.h"
 
 // ----------------------------------------------------
 // A szimulált bemeneti puffer beállításai (Modbus kérés)
@@ -10,9 +11,6 @@
 // ----------------------------------------------------
 uint8_t SIM_RX_DATA_BUF[8] = { 254, 3, 0x01, 0x64, 0x00, 0x02, 0xAC, 0x50 }; 
 uint8_t SIM_RX_INDEX = 0;
-
-// Globális változó, amit a Modbus logika használ (a main_test-ben állítjuk be)
-extern uint32_t power_consumption; 
 
 // A valós idej? függvény hívások szimulálása
 

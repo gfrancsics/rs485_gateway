@@ -2,24 +2,65 @@
 #include "uart1_statemachine.h"
 #include "uart2_statemachine.h"
 
+#define CONTINUOUS 0
+#define INTERVAL_10MS 10
+#define INTERVAL_100MS 100
+#define INTERVAL_1S 1000
+#define INTERVAL_1M 60000
+
+void timer1_ISR(void);
+void task(void);
+void task_10ms(void);
+void task_100ms(void);
+void task_1000ms(void);
+void task_60000ms(void);
+
+//task descriptor
+typedef struct
+{
+    uint16_t interval;
+    uint32_t last_tick;
+    void (*func)(void);
+} task_t;
+
+//task configuration table for INTERNAL use
+static task_t tasks[] =
+{
+    {CONTINUOUS,    0,  task},
+    {INTERVAL_10MS, 0,  task_10ms},
+    {INTERVAL_100MS,0,  task_100ms},
+    {INTERVAL_1S,   0,  task_1000ms},
+    {INTERVAL_1M,   0,  task_60000ms},
+};
+
 // Tick számláló. Volatile és static for INTERNAL use
 static volatile uint32_t tick = 0;
-void timer1_ISR(void);
+
+// --- Segédmakrók az Atomicitás Biztosítására ---
+// Ezek a makrók letiltják a megszakításokat a kritikus 32-bites olvasások/írások idejére.
+// Az XC8 környezetnek megfelel? INTERRUPT_GlobalInterruptEnable() és Disable() hívásokat használja.
+#define ATOMIC_START    INTERRUPT_GlobalInterruptDisable()
+#define ATOMIC_END      INTERRUPT_GlobalInterruptEnable()
+
 extern uint8_t SIM_RX_INDEX;
-uint32_t power_consumption;
+extern uint32_t power_consumption;
 
 /*
                          Main application
  */
 void main()
 {
+    uint8_t task_index = 0;
+    const uint8_t number_of_tasks = sizeof(tasks)/sizeof(task_t);
+    uint32_t current_tick_copy; // Atomikus olvasáshoz
+
     // initialize the device
     SYSTEM_Initialize();
     
     TMR1_SetInterruptHandler(timer1_ISR);
     
-    //UART1_initialise_logic();
-    //UART2_initialise_logic();
+    UART1_initialise_logic();
+    UART2_initialise_logic();
 
     // If using interrupts in PIC18 High/Low Priority Mode you need to enable the Global High and Low Interrupts
     // If using interrupts in PIC Mid-Range Compatibility Mode you need to enable the Global Interrupts
@@ -31,51 +72,76 @@ void main()
     // Disable the Global Interrupts
     //INTERRUPT_GlobalInterruptDisable();
     
-    // 1. HARDVER BEÁLLÍTÁSOK (a profilerhez)
-    // Tegyük fel, hogy a RB7-t használjuk mérésre
-    LED_SetLow();
-
-    // 2. TESZT CIKLUSOK
-    bool is_response_ready = false;
-    
-    while(1) 
+    while (1)
     {
-        LED_Toggle();
-        // Futtassunk 1000 iterációt a megbízható méréshez
-        for(int i = 0; i < 10; i++) 
+        
+        // 1. lépés: Megszakításmentes (Atomi) olvasás
+        ATOMIC_START;
+        current_tick_copy = tick;
+        ATOMIC_END;
+        
+        // Add your application code
+        for(task_index=0; task_index<number_of_tasks; task_index++)
         {
-            // 1. KÉRELEM FELDOLGOZÁSA: Betöltjük a keretet
-            // A szimulált UART_Read_NonBlocking automatikusan kiadja a 8 bájtot 
-            // a 'UART1_request_state()' bels? while ciklusában.
-            power_consumption=(uint32_t)i;
-
-            // Futtatjuk az állapotgépet, amíg a FUNC_RESP-be nem kerül
-            // (vagyis az összes bemeneti bájt el nem fogy)
-            if (!is_response_ready) {
-                dynamic_funtion_t state = UART1_request_state();
-
-                if (state == FUNC_RESP) {
-                    is_response_ready = true;
-                }
+            if(tasks[task_index].interval == CONTINUOUS)
+            {
+                (*tasks[task_index].func)();
             }
-
-            // 2. VÁLASZ GENERÁLÁS ÉS MÉRÉS
-            if (is_response_ready) {
-                // A GPIO Toggle mérés a UART1_response_state() BELS?BEN van elhelyezve!
-                dynamic_funtion_t state = UART1_response_state();
-
-                if (state == FUNC_REQ) {
-                    // SIKERES KÜLDÉS: Visszakapcsolt RX-re és kész.
-
-                    // ÚJ TESZT INDÍTÁSA
-                    is_response_ready = false; 
-                    SIM_RX_INDEX = 0; // Újra betölthetjük a 8 bájtot a mock-ból
-                }
+            else if((current_tick_copy - tasks[task_index].last_tick) >= tasks[task_index].interval)
+            {
+                (*tasks[task_index].func)();
+                
+                // 2. lépés: Anti-drift logikával történ? id?zít? frissítés
+                // A next_tick kiszámítása történhet megszakítás nélkül is,
+                // de a last_tick értékadásához kell az atomicitás.
+                
+                ATOMIC_START;
+                tasks[task_index].last_tick += tasks[task_index].interval;
+                // Megjegyzés: Ha a feladat túl lassan fut, az intervalumot többször is hozzáadhatjuk, 
+                // amíg a last_tick a current_tick_copy elé nem kerül.
+                // Pl.: while (tasks[task_index].last_tick <= current_tick_copy) { tasks[task_index].last_tick += tasks[task_index].interval; }
+                ATOMIC_END;
             }
-
-            // Késleltetés nélkül, a lehet? leggyorsabban futtatjuk a ciklust a méréshez
         }
     }
+}
+
+void task(void)
+{
+}
+
+static dynamic_funtion_t current_uart1_state=FUNC_REQ;
+
+void task_10ms(void)
+{
+    LED_Toggle();
+    if(current_uart1_state==FUNC_REQ) {
+        current_uart1_state = UART1_request_state();
+    } else {
+        SIM_RX_INDEX = 0;
+        power_consumption++;
+        current_uart1_state = UART1_response_state();
+    }
+}
+
+void task_100ms(void)
+{
+    __delay_ms(5);
+}
+
+static dynamic_funtion_t current_uart2_state=FUNC_REQ;
+
+void task_1000ms(void)
+{
+    if(current_uart2_state==FUNC_REQ) {
+        current_uart2_state = UART2_request_state();
+    } else {
+        current_uart2_state = UART2_response_state();
+    }
+}
+
+void task_60000ms(void)
+{
 }
 
 void timer1_ISR(void)
