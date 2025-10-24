@@ -48,6 +48,7 @@
       <itemPath>crc.c</itemPath>
       <itemPath>uart1_statemachine.c</itemPath>
       <itemPath>uart2_statemachine.c</itemPath>
+      <itemPath>uart1_mock.c</itemPath>
     </logicalFolder>
   </logicalFolder>
   <sourceRootList>

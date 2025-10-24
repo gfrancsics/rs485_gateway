@@ -4,7 +4,7 @@
 dynamic_funtion_t send(uint8_t* vector, uint8_t length);
 void calc164(uint8_t* vector, uint32_t powerconsumption);
 
-//bej?n az uart2_statemachine-b?l
+//bejön az uart2_statemachine-b?l
 uint32_t power_consumption;
 
 void UART1_initialise_logic(void)
@@ -135,8 +135,8 @@ typedef union {
 
 void calc164(uint8_t* vector, uint32_t powerconsumption)
 {
-    // A register kulcssz? a PIC-en seg?ti a gyorsabb hozz?f?r?st a 8 bites regiszterekhez.
-    register uint16_t crc = 0xffff; 
+    // A register kulcsszó a PIC-en segíti a gyorsabb hozzáférést a 8 bites regiszterekhez.
+    register uint16_t crc = 0; 
     uint8_t i;
     
     // Union a bemenet kezel?s?re ?s a manipul?ci?ra
@@ -191,12 +191,12 @@ void calc164(uint8_t* vector, uint32_t powerconsumption)
     vector[13] = val_alias.bytes[1];
     vector[14] = val_alias.bytes[0];
     
-    // CRC sz?m?t?s (Ciklus Unroll, ahogy kor?bban javasoltuk)
-    // Felt?telezve 19 b?jtos CRC (index 0-t?l 18-ig)
-    // A ciklus a Modbus keret adattartalm?n fut v?gig, 
-    // a 0. indext?l (SlaveID) a 18. indexig (az utols? adatb?jt)
+    // CRC számítás (Ciklus Unroll, ahogy korábban javasoltuk)
+    // Feltételezve 19 bájtos CRC (index 0-tól 18-ig)
+    // A ciklus a Modbus keret adattartalmán fut végig, 
+    // a 0. indext?l (SlaveID) a 18. indexig (az utolsó adatbájt)
     for (i = 0; i < 19; i++) {
-        // update_crc_16_simple val?sz?n?leg egy header f?jlban van defini?lva.
+        // update_crc_16_simple valószín?leg egy header fájlban van definiálva.
         crc = update_crc_16_simple(crc, vector[i]); 
     }
     
@@ -259,7 +259,7 @@ dynamic_funtion_t send(uint8_t* vector, uint8_t length)
         case SEND_STATE_T3_5_DELAY:
             // V?rjuk meg, am?g a T3.5 id?z?t? lej?r
             //if (TIMER_T3_5_IsExpired()) {
-                // *** EZ A KRITIKUS PONT: ?TKAPCSOL?S RX-RE ***
+                // *** EZ A KRITIKUS PONT: ÁTKAPCSOLÁS RX-RE ***
                 //__delay_ms(3);
                 UART1_RX_EN(); 
                 tx_state = SEND_STATE_IDLE; // Vissza az alaphelyzetbe
