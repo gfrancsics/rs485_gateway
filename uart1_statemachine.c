@@ -5,7 +5,7 @@ dynamic_funtion_t send(uint8_t* vector, uint8_t length);
 void calc164(uint8_t* vector, uint32_t powerconsumption);
 
 //bejön az uart2_statemachine-b?l
-extern uint32_t power_consumption;
+uint32_t power_consumption;
 
 void UART1_initialise_logic(void)
 {
@@ -137,6 +137,7 @@ void calc164(uint8_t* vector, uint32_t powerconsumption)
 {
     // A register kulcsszó a PIC-en segíti a gyorsabb hozzáférést a 8 bites regiszterekhez.
     register uint16_t crc = 0; 
+    uint8_t i;
     
     // Union a bemenet kezelésére és a manipulációra
     float_converter_t val_to_scale;
@@ -172,6 +173,7 @@ void calc164(uint8_t* vector, uint32_t powerconsumption)
     // 2. INTEGER KONVERZIÓ (Elkerülhetetlen, lassú lépés)
     // Az egész részt vesszük: (uint32_t) (F * 16384.0f)
     val_alias.u32 = (uint32_t)val_to_scale.f; 
+    //val_alias.u32 = powerconsumption;
     
     // ===============================================================
     // 3. ADATÍRÁS ÉS CRC (Optimalizálva)
@@ -191,26 +193,12 @@ void calc164(uint8_t* vector, uint32_t powerconsumption)
     
     // CRC számítás (Ciklus Unroll, ahogy korábban javasoltuk)
     // Feltételezve 19 bájtos CRC (index 0-tól 18-ig)
-    crc = 0;
-    crc = update_crc_16(crc, vector[0]);
-    crc = update_crc_16(crc, vector[1]);
-    crc = update_crc_16(crc, vector[2]);
-    crc = update_crc_16(crc, vector[3]);
-    crc = update_crc_16(crc, vector[4]);
-    crc = update_crc_16(crc, vector[5]);
-    crc = update_crc_16(crc, vector[6]);
-    crc = update_crc_16(crc, vector[7]);
-    crc = update_crc_16(crc, vector[8]);
-    crc = update_crc_16(crc, vector[9]);
-    crc = update_crc_16(crc, vector[10]);
-    crc = update_crc_16(crc, vector[11]);
-    crc = update_crc_16(crc, vector[12]);
-    crc = update_crc_16(crc, vector[13]);
-    crc = update_crc_16(crc, vector[14]);
-    crc = update_crc_16(crc, vector[15]);
-    crc = update_crc_16(crc, vector[16]);
-    crc = update_crc_16(crc, vector[17]);
-    crc = update_crc_16(crc, vector[18]);
+    // A ciklus a Modbus keret adattartalmán fut végig, 
+    // a 0. indext?l (SlaveID) a 18. indexig (az utolsó adatbájt)
+    for (i = 0; i < 19; i++) {
+        // update_crc_16_simple valószín?leg egy header fájlban van definiálva.
+        crc = update_crc_16_simple(crc, vector[i]); 
+    }
     
     // CRC LOW
     vector[19] = (uint8_t)crc; 
@@ -272,7 +260,7 @@ dynamic_funtion_t send(uint8_t* vector, uint8_t length)
             // Várjuk meg, amíg a T3.5 id?zít? lejár
             //if (TIMER_T3_5_IsExpired()) {
                 // *** EZ A KRITIKUS PONT: ÁTKAPCSOLÁS RX-RE ***
-                __delay_ms(3);
+                //__delay_ms(3);
                 UART1_RX_EN(); 
                 tx_state = SEND_STATE_IDLE; // Vissza az alaphelyzetbe
                 return FUNC_REQ; // SIKERES KÜLDÉS VÉGE

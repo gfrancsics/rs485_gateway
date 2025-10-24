@@ -74,11 +74,11 @@ void TMR1_Initialize(void)
     //CS FOSC; 
     T1CLK = 0x02;
 
-    //TMR1H 252; 
-    TMR1H = 0xFC;
+    //TMR1H 131; 
+    TMR1H = 0x83;
 
-    //TMR1L 24; 
-    TMR1L = 0x18;
+    //TMR1L 0; 
+    TMR1L = 0x00;
 
     // Clearing IF flag before enabling the interrupt.
     PIR3bits.TMR1IF = 0;

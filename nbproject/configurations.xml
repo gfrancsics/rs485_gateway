@@ -37,7 +37,6 @@
                      displayName="MCC Generated Files"
                      projectFiles="true">
         <itemPath>mcc_generated_files/interrupt_manager.c</itemPath>
-        <itemPath>mcc_generated_files/uart1.c</itemPath>
         <itemPath>mcc_generated_files/pin_manager.c</itemPath>
         <itemPath>mcc_generated_files/tmr1.c</itemPath>
         <itemPath>mcc_generated_files/mcc.c</itemPath>
@@ -48,6 +47,7 @@
       <itemPath>crc.c</itemPath>
       <itemPath>uart1_statemachine.c</itemPath>
       <itemPath>uart2_statemachine.c</itemPath>
+      <itemPath>uart1_mock.c</itemPath>
     </logicalFolder>
   </logicalFolder>
   <sourceRootList>
